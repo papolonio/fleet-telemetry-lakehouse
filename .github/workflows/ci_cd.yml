@@ -1,0 +1,61 @@
+name: "DataOps CI/CD - Fleet Telemetry Lakehouse"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-test:
+    name: "Code Quality, dbt Checks & Bundle Validation"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install ruff dbt-core dbt-databricks
+
+      - name: Lint Python Code (Ruff)
+        run: |
+          ruff check src/
+
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Validate Databricks Asset Bundle (DAB)
+        env:
+          DATABRICKS_HOST: "https://adb-mock.azuredatabricks.net"
+          DATABRICKS_TOKEN: "mock_token_for_validation"
+        run: |
+          databricks bundle validate -t dev
+
+  deploy-prod:
+    name: "Deploy Bundle to Databricks (Production)"
+    needs: validate-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Deploy Databricks Asset Bundle to Prod
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          databricks bundle deploy -t prod

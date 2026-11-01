@@ -1,0 +1,43 @@
+name: 'fleet_analytics'
+version: '1.0.0'
+config-version: 2
+
+# Perfil de conexão (definido no profiles.yml)
+profile: 'fleet_databricks'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Configuração de Modelos por Camada
+models:
+  fleet_analytics:
+    # Camada Staging: Views leves sobre a Silver
+    staging:
+      +materialized: view
+      +schema: gold_staging
+      +file_format: delta
+
+    # Camada Intermediate: Agrupamentos e janelas analíticas
+    intermediate:
+      +materialized: view
+      +schema: gold_intermediate
+      +file_format: delta
+
+    # Camada Marts (Gold Final): Tabelas Delta Otimizadas com Liquid Clustering
+    marts:
+      +materialized: table
+      +schema: gold
+      +file_format: delta
+      # Liquid Clustering nativo do Databricks via dbt-databricks
+      dimensions:
+        +materialized: table
+      facts:
+        +materialized: table

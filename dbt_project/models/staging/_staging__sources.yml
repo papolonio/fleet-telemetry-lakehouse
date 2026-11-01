@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: silver
+    database: fleet_logistics
+    schema: silver
+    description: "Tabelas higienizadas da camada Silver com Liquid Clustering."
+    tables:
+      - name: telemetry_cleaned
+        description: "Eventos limpos de telemetria IoT de veículos em trânsito."
+        columns:
+          - name: vehicle_id
+            description: "Identificador único do veículo."
+          - name: event_timestamp
+            description: "Data e hora exata do evento de telemetria em UTC."
+
+      - name: orders_cleaned
+        description: "Pedidos e entregas do ERP com dados de SLA e conclusão."
+        columns:
+          - name: order_id
+            description: "Chave primária do pedido (UUID)."

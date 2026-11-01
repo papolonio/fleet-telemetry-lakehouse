@@ -1,0 +1,91 @@
+# ==============================================================================
+# databricks.yml: Databricks Asset Bundle (DAB) Configuration
+# Padrão oficial Databricks para DataOps & Infraestrutura como Código (IaC)
+# ==============================================================================
+
+bundle:
+  name: fleet-telemetry-lakehouse
+
+# Ambientes de Deploy (Dev vs Prod)
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: ${DATABRICKS_HOST}
+      root_path: /Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+
+  prod:
+    mode: production
+    workspace:
+      host: ${DATABRICKS_HOST}
+      root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
+
+# Definição do Pipeline de Workflow Orquestrado (Job Multi-Task)
+resources:
+  jobs:
+    fleet_end_to_end_pipeline:
+      name: "[DataOps] Fleet Telemetry Lakehouse Pipeline"
+      
+      # Execução agendada ou sob demanda (otimizado para Free Tier)
+      schedule:
+        quartz_cron_expression: "0 0 * * * ?" # A cada hora (desativado por padrão em dev)
+        timezone_id: "America/Sao_Paulo"
+        pause_status: PAUSED
+
+      tasks:
+        # Task 1: Ingestão de Telemetria e Pedidos na Bronze via Auto Loader
+        - task_key: bronze_autoloader_ingestion
+          spark_python_task:
+            python_file: src/pipelines/bronze_ingestion.py
+            parameters:
+              - "fleet_logistics"
+          new_cluster:
+            spark_version: "14.3.x-scala2.12"
+            node_type_id: "Standard_D4ds_v5" # Máquina econômica compatível com quotas Azure Student
+            num_workers: 1
+            autotermination_minutes: 10
+            spark_conf:
+              "spark.databricks.delta.optimizeWrite.enabled": "true"
+              "spark.databricks.delta.autoCompact.enabled": "true"
+
+        # Task 2: Higienização e Gravação na Silver com Liquid Clustering
+        - task_key: silver_cleansing_liquid_clustering
+          depends_on:
+            - task_key: bronze_autoloader_ingestion
+          spark_python_task:
+            python_file: src/pipelines/silver_cleaning.py
+            parameters:
+              - "fleet_logistics"
+          existing_cluster_id: null # Reutiliza a definição de cluster leve da Task 1
+          new_cluster:
+            spark_version: "14.3.x-scala2.12"
+            node_type_id: "Standard_D4ds_v5"
+            num_workers: 1
+            autotermination_minutes: 10
+
+        # Task 3: Transformação Dimensional Gold com dbt Core via SQL Warehouse Serverless
+        - task_key: gold_dbt_transformations
+          depends_on:
+            - task_key: silver_cleansing_liquid_clustering
+          dbt_task:
+            project_directory: dbt_project
+            commands:
+              - "dbt deps"
+              - "dbt run --target dev"
+              - "dbt test --target dev"
+            warehouse_id: ${var.sql_warehouse_id}
+
+        # Task 4: Materialização das Metric Views (Camada Semântica para BI/Genie)
+        - task_key: publish_metric_views
+          depends_on:
+            - task_key: gold_dbt_transformations
+          sql_task:
+            file:
+              path: src/pipelines/create_metric_views.sql
+            warehouse_id: ${var.sql_warehouse_id}
+
+variables:
+  sql_warehouse_id:
+    description: "ID do Databricks SQL Warehouse Serverless 2X-Small"
+    default: "xxxxxxxxxxxxxxxx"

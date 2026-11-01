@@ -1,0 +1,17 @@
+# ==============================================================================
+# profiles.yml: Configuração de Conexão dbt Core -> Databricks Unity Catalog
+# Suporta: Databricks Serverless SQL Warehouse (Custo Otimizado: 2X-Small)
+# ==============================================================================
+
+fleet_databricks:
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+      schema: gold
+      # Unity Catalog: Catálogo de 3 níveis (catalog.schema.table)
+      catalog: fleet_logistics
+      host: "{{ env_var('DATABRICKS_HOST') }}" # Ex: adb-xxxxxxxx.azuredatabricks.net
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}" # Path do SQL Warehouse Serverless 2X-Small
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      threads: 4

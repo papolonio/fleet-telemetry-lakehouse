@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: dim_vehicles
+    description: "Tabela de Dimensão contendo a frota de veículos e taxas de consumo de marcha lenta."
+    columns:
+      - name: vehicle_id
+        description: "Chave primária do veículo."
+        tests:
+          - unique
+          - not_null
+      - name: vehicle_type
+        description: "Categoria operacional do veículo (TRUCK_HEAVY, VAN_LIGHT, etc)."
+        tests:
+          - not_null
+      - name: idle_burn_rate_liters_per_hour
+        description: "Taxa média de queima de combustível em marcha lenta (litros/hora)."
+        tests:
+          - not_null
+
+  - name: dim_drivers
+    description: "Tabela de Dimensão com o cadastro e perfis de motoristas operacionais."
+    columns:
+      - name: driver_id
+        description: "Chave primária do motorista."
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_telemetry_trips
+    description: "Tabela Fato consolidada de viagens e telemetria, materializada com Liquid Clustering em (vehicle_id, trip_date)."
+    columns:
+      - name: trip_surrogate_key
+        description: "Chave substituta única da viagem (MD5 hash de vehicle_id, driver_id e trip_date)."
+        tests:
+          - unique
+          - not_null
+      - name: vehicle_id
+        description: "Chave estrangeira para dim_vehicles."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_vehicles')
+              field: vehicle_id
+      - name: driver_id
+        description: "Chave estrangeira para dim_drivers."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_drivers')
+              field: driver_id
+      - name: estimated_idling_cost_brl
+        description: "Prejuízo financeiro estimado em R$ por queima de combustível ocioso."
+        tests:
+          - not_null
+      - name: driver_risk_score_per_100km
+        description: "Score de risco de condução normalizado por 100 km rodados."
+        tests:
+          - not_null
+
+  - name: fct_delivery_orders
+    description: "Tabela Fato de entregas e cruzamento de performance de SLA, com Liquid Clustering em (order_id, order_date)."
+    columns:
+      - name: order_id
+        description: "Chave primária do pedido."
+        tests:
+          - unique
+          - not_null
+      - name: order_status
+        description: "Status do pedido na esteira de entrega."
+        tests:
+          - accepted_values:
+              values: ['DELIVERED', 'IN_TRANSIT', 'DELAYED', 'CANCELLED']
+      - name: is_sla_breached
+        description: "Flag binária: 1 se entrega ocorreu após o horário de SLA, 0 se pontual."

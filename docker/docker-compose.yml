@@ -1,0 +1,14 @@
+services:
+  dataops-dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: fleet_dataops_container
+    volumes:
+      - ..:/workspace
+      - ~/.databrickscfg:/root/.databrickscfg:ro
+    environment:
+      - ENVIRONMENT=dev
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
