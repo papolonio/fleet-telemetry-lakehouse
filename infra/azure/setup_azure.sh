@@ -6,9 +6,13 @@
 
 set -euo pipefail
 
+# Garantir que o binário do az CLI local esteja no PATH
+export PATH="$HOME/.local/bin:$PATH"
+
 # 1. Variáveis de Configuração
-# DICA: 'eastus' possui o menor custo e as maiores quotas disponíveis para contas de estudante.
-LOCATION="eastus"
+# O Azure for Students possui a política 'sys.regionrestriction' limitando regiões.
+# 'northcentralus' é a região permitida com suporte completo a Databricks, Storage e Access Connector.
+LOCATION="northcentralus"
 RANDOM_SUFFIX=$((RANDOM % 9000 + 1000))
 RESOURCE_GROUP="rg-fleet-lakehouse-dev"
 STORAGE_ACCOUNT="stfleetdata${RANDOM_SUFFIX}" # Precisa ser globalmente único (letras minúsculas e números)
